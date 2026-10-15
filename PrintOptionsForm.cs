@@ -18,7 +18,7 @@ public class PrintOptionsForm : Form
     readonly PrintOptions o;
     readonly PrintOptions original;
     readonly PrintDocument doc;
-    readonly PrintPreviewControl preview = new() { Dock = DockStyle.Fill, AutoZoom = true, UseAntiAlias = true };
+    internal readonly PrintPreviewControl preview = new() { Dock = DockStyle.Fill, AutoZoom = true, UseAntiAlias = true };
 
     /// <summary>True when the user clicked Print (the caller then asks for the printer).</summary>
     public bool PrintRequested { get; private set; }

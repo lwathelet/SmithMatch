@@ -1,0 +1,11 @@
+{
+  "Z0": 50,
+  "Frequency": "2.45G",
+  "KitValuesOnly": true,
+  "StartPoint": 0,
+  "Points": [ { "R": 29, "X": 132, "Freq": 2450000000 } ],
+  "Components": [
+    { "Slot": 2, "Type": "ShuntC", "Value": 8E-13 },
+    { "Slot": 4, "Type": "SeriesL", "Value": 1.2E-08 }
+  ]
+}

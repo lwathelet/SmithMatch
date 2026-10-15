@@ -394,7 +394,13 @@ public class MainForm : Form
     {
         if (!ConfirmDiscard()) return;
         using var ofd = new OpenFileDialog { Filter = "SmithMatch design (*.smith)|*.smith|All files|*.*" };
-        if (ofd.ShowDialog(this) != DialogResult.OK) return;
+        if (ofd.ShowDialog(this) == DialogResult.OK) LoadDesign(ofd.FileName);
+    }
+
+    /// <summary>Loads a .smith file (from File → Open or from the command line).</summary>
+    public void LoadDesign(string path)
+    {
+        var ofd = new { FileName = path };
         DesignFile d;
         try { d = System.Text.Json.JsonSerializer.Deserialize<DesignFile>(File.ReadAllText(ofd.FileName)); }
         catch (Exception ex) { MessageBox.Show(this, "Cannot open: " + ex.Message); return; }
@@ -428,7 +434,60 @@ public class MainForm : Form
         Recalc();
     }
 
-    void ShowSweep()
+    /// <summary>Saves images of the main window, the VSWR sweep and the print dialog (used for the README).</summary>
+    public void SaveScreenshots(string folder)
+    {
+        Directory.CreateDirectory(folder);
+        void Save(Control c, string name)
+        {
+            c.Refresh();
+            Application.DoEvents();
+            using var bmp = new Bitmap(c.Width, c.Height);
+            c.DrawToBitmap(bmp, new Rectangle(0, 0, c.Width, c.Height));
+            bmp.Save(Path.Combine(folder, name), System.Drawing.Imaging.ImageFormat.Png);
+        }
+        chart.Zoom = 1;
+        chart.CursorGamma = null;
+        Save(this, "main.png");
+
+        ShowSweep();
+        sweep.Size = new Size(800, 420);
+        Save(sweep, "sweep.png");
+        sweep.Close();
+
+        using var doc = new System.Drawing.Printing.PrintDocument { DocumentName = DesignName };
+        doc.BeginPrint += (_, _) => printPage = 0;
+        doc.PrintPage += PrintPage;
+        using var dlg = new PrintOptionsForm(printOptions, doc) { StartPosition = FormStartPosition.Manual, Location = new Point(-3000, 0) };
+        dlg.Show(this);
+        for (int k = 0; k < 30; k++) { Application.DoEvents(); Thread.Sleep(50); }
+        // the preview control draws asynchronously and is not captured: render the page and paste it in
+        var ppc = new System.Drawing.Printing.PreviewPrintController();
+        doc.PrintController = ppc;
+        doc.DefaultPageSettings.Landscape = printOptions.Landscape;
+        doc.Print();
+        using (var bmp = new Bitmap(dlg.Width, dlg.Height))
+        {
+            dlg.DrawToBitmap(bmp, new Rectangle(0, 0, dlg.Width, dlg.Height));
+            using var g = Graphics.FromImage(bmp);
+            var area = dlg.RectangleToClient(dlg.preview.RectangleToScreen(dlg.preview.ClientRectangle));
+            var off = dlg.PointToScreen(Point.Empty);
+            area.Offset(off.X - dlg.Left, off.Y - dlg.Top);
+            var page = ppc.GetPreviewPageInfo()[0].Image;
+            float sc = Math.Min((area.Width - 30f) / page.Width, (area.Height - 30f) / page.Height);
+            float w = page.Width * sc, h = page.Height * sc;
+            float x = area.Left + (area.Width - w) / 2, y = area.Top + (area.Height - h) / 2;
+            g.FillRectangle(Brushes.DimGray, x + 4, y + 4, w, h);
+            g.FillRectangle(Brushes.White, x, y, w, h);
+            g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+            g.DrawImage(page, x, y, w, h);
+            bmp.Save(Path.Combine(folder, "print.png"), System.Drawing.Imaging.ImageFormat.Png);
+        }
+        dlg.Close();
+        dirty = false;   // nothing to save when closing
+    }
+
+        void ShowSweep()
     {
         if (sweep == null || sweep.IsDisposed)
         {
