@@ -44,7 +44,19 @@ You enter the impedance of your load (e.g. an antenna measured with a VNA), add 
 
 ![Print dialog](docs/print.png)
 
-## Getting started
+## Install
+
+Download and run **[setup/SmithMatch-Setup-1.0.0.exe](setup/SmithMatch-Setup-1.0.0.exe)** (Windows 10/11, 64-bit).
+The program is self-contained: .NET does not need to be installed. The installer can associate `.smith` files with SmithMatch and installs a demo design.
+
+To rebuild the installer (requires [Inno Setup 6](https://jrsoftware.org/isinfo.php)):
+
+```bash
+dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
+"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" setup\SmithMatch.iss
+```
+
+## Build from source
 
 Requirements: Windows and the [.NET 10 SDK](https://dotnet.microsoft.com/download).
 

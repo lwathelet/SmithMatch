@@ -8,6 +8,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>SmithMatch</RootNamespace>
     <AssemblyName>SmithMatch</AssemblyName>
+    <Version>1.0.0</Version>
+    <Product>SmithMatch</Product>
+    <Company>Luc Wathelet</Company>
   </PropertyGroup>
 
 </Project>
