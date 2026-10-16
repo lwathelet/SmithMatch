@@ -46,6 +46,7 @@ public class ParasiticsForm : Form
         foreach (var (k, _) in slots) state[k] = (parasitics(k), measurements(k)?.ToList() ?? new());
 
         Text = "Parasitics from measurements";
+        Icon = Branding.AppIcon;
         StartPosition = FormStartPosition.CenterParent;
         MinimizeBox = false;
         ShowInTaskbar = false;

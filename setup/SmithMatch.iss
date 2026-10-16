@@ -4,7 +4,7 @@
 
 #define AppName "SmithMatch"
 #define AppVersion "1.1.0"
-#define AppPublisher "Luc Wathelet"
+#define AppPublisher "Wattlet AS"
 #define AppURL "https://github.com/lwathelet/SmithMatch"
 #define AppExe "SmithMatch.exe"
 
@@ -18,6 +18,8 @@ AppSupportURL={#AppURL}
 DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 UninstallDisplayIcon={app}\{#AppExe}
+SetupIconFile=..\assets\smartvvb.ico
+WizardSmallImageFile=..\assets\wizard-small.bmp
 LicenseFile=..\LICENSE
 OutputDir=.
 OutputBaseFilename=SmithMatch-Setup-{#AppVersion}

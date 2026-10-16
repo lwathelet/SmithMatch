@@ -29,6 +29,7 @@ public class PrintOptionsForm : Form
         original = options.Clone();
         doc = document;
         Text = "Print";
+        Icon = Branding.AppIcon;
         StartPosition = FormStartPosition.CenterParent;
         MinimizeBox = false;
         ShowInTaskbar = false;

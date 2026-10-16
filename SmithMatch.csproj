@@ -10,7 +10,13 @@
     <AssemblyName>SmithMatch</AssemblyName>
     <Version>1.1.0</Version>
     <Product>SmithMatch</Product>
-    <Company>Luc Wathelet</Company>
+    <Company>Wattlet AS</Company>
+    <ApplicationIcon>assets\smartvvb.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="assets\smartvvb.ico" LogicalName="SmithMatch.icon.ico" />
+    <EmbeddedResource Include="assets\smartvvb-logo.png" LogicalName="SmithMatch.logo.png" />
+  </ItemGroup>
 
 </Project>

@@ -9,6 +9,7 @@ public class InputDialog : Form
     public InputDialog(string title, params (string label, string value)[] fields)
     {
         Text = title;
+        Icon = Branding.AppIcon;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         StartPosition = FormStartPosition.CenterParent;
         MinimizeBox = MaximizeBox = false;

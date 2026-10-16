@@ -17,6 +17,7 @@ public class SweepForm : Form
         this.vswrAt = vswrAt;
         this.designFreq = designFreq;
         Text = "VSWR sweep";
+        Icon = Branding.AppIcon;
         Width = 800; Height = 450;
         Font = new Font("Segoe UI", 9f);
         double f0 = designFreq();

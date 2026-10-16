@@ -43,6 +43,7 @@ public class MainForm : Form
         Width = 1400; Height = 900;
         StartPosition = FormStartPosition.CenterScreen;
         Font = new Font("Segoe UI", 9f);
+        Icon = Branding.AppIcon;
 
         Controls.Add(BuildBody());
         Controls.Add(BuildToolbar());
@@ -87,8 +88,15 @@ public class MainForm : Form
         view.DropDownItems.Add(imp);
         view.DropDownItems.Add(adm);
         view.DropDownItems.Add("Zoom 1:1", null, (_, _) => { chart.Zoom = 1; chart.Invalidate(); });
+        var help = new ToolStripMenuItem("Help");
+        help.DropDownItems.Add("SmartVVB website", null, (_, _) => Branding.OpenUrl("https://smartvvb.no"));
+        help.DropDownItems.Add("PoE-Sea website", null, (_, _) => Branding.OpenUrl("https://poe-sea.com"));
+        help.DropDownItems.Add("SmithMatch on GitHub", null, (_, _) => Branding.OpenUrl("https://github.com/lwathelet/SmithMatch"));
+        help.DropDownItems.Add(new ToolStripSeparator());
+        help.DropDownItems.Add(new ToolStripMenuItem("About SmithMatch...", null, (_, _) => { using var a = new AboutForm(); a.ShowDialog(this); }) { ShortcutKeys = Keys.F1 });
         ms.Items.Add(file);
         ms.Items.Add(view);
+        ms.Items.Add(help);
         return ms;
     }
 
@@ -518,6 +526,14 @@ public class MainForm : Form
         }
         dlg.Close();
 
+        using (var about = new AboutForm { StartPosition = FormStartPosition.Manual, Location = new Point(-3000, 0) })
+        {
+            about.Show(this);
+            for (int k = 0; k < 10; k++) { Application.DoEvents(); Thread.Sleep(30); }
+            Save(about, "about.png");
+            about.Close();
+        }
+
         // parasitics dialog of the first position that has measurements
         int ks = Enumerable.Range(0, 9).FirstOrDefault(k => slotMeas[k] is { Count: > 0 }, -1);
         if (ks >= 0)
@@ -670,7 +686,7 @@ public class MainForm : Form
         var backup = slots;
         using var dlg = new Form
         {
-            Text = "Auto-match: choose a solution", Width = 520, Height = 260,
+            Text = "Auto-match: choose a solution", Width = 520, Height = 260, Icon = Branding.AppIcon,
             StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.SizableToolWindow
         };
         var lb = new ListBox { Dock = DockStyle.Fill, IntegralHeight = false };
