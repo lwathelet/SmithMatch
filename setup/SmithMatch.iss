@@ -3,7 +3,7 @@
 ; Then:         "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" setup\SmithMatch.iss
 
 #define AppName "SmithMatch"
-#define AppVersion "1.0.0"
+#define AppVersion "1.1.0"
 #define AppPublisher "Luc Wathelet"
 #define AppURL "https://github.com/lwathelet/SmithMatch"
 #define AppExe "SmithMatch.exe"

@@ -56,8 +56,9 @@ You enter the impedance of your load (e.g. an antenna measured with a VNA), add 
 
 ## Install
 
-Download and run **[setup/SmithMatch-Setup-1.0.0.exe](setup/SmithMatch-Setup-1.0.0.exe)** (Windows 10/11, 64-bit).
-The program is self-contained: .NET does not need to be installed. The installer can associate `.smith` files with SmithMatch and installs a demo design.
+Download **SmithMatch-Setup-x.y.z.exe** from the **[latest release](https://github.com/lwathelet/SmithMatch/releases/latest)** and run it (Windows 10/11, 64-bit).
+The program is self-contained: .NET does not need to be installed. The installer can associate `.smith` files with SmithMatch and installs two example designs.
+Windows SmartScreen may warn because the installer is not signed: choose *More info* → *Run anyway*.
 
 To rebuild the installer (requires [Inno Setup 6](https://jrsoftware.org/isinfo.php)):
 
@@ -65,6 +66,8 @@ To rebuild the installer (requires [Inno Setup 6](https://jrsoftware.org/isinfo.
 dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
 "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" setup\SmithMatch.iss
 ```
+
+The installer is created in `setup/` and published as a GitHub Release asset (it is not committed).
 
 ## Build from source
 
