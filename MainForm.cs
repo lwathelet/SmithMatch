@@ -794,7 +794,7 @@ public class MainForm : Form
                 + (Kits.PartNumber(slots[k].Type, slots[k].Value) is string pn ? $"   Würth {pn}" : ""));
         var resLines = hasStart ? new List<string> { lblResult.Text } : new List<string>();
 
-        float schH = 130, sweepH = Math.Max(150, m.Height * 0.2f);
+        float schH = 110, sweepH = Math.Max(130, m.Height * 0.15f);
         float SectionsHeight()
         {
             float h = 0;
@@ -811,7 +811,7 @@ public class MainForm : Form
             // the chart takes all the space left by the sections printed on the same page
             float avail = m.Bottom - y - (sectionsHere ? SectionsHeight() : 0) - 10;
             float size = Math.Max(Math.Min(m.Width, avail), Math.Min(m.Width, m.Height) * 0.35f);
-            using (var bmp = RenderChart(o))
+            using (var bmp = RenderChart(o, size))
                 g.DrawImage(bmp, m.Left + (m.Width - size) / 2, y, size, size);
             y += size + 10;
         }
@@ -854,18 +854,22 @@ public class MainForm : Form
     }
 
     /// <summary>Renders the Smith chart for printing with the chosen layers (zoom 1:1, no cursor).</summary>
-    Bitmap RenderChart(PrintOptions o)
+    Bitmap RenderChart(PrintOptions o, float printedSize)
     {
         var keep = (chart.ShowImpedance, chart.ShowAdmittance, chart.ShowLabels, chart.ShowTraces, chart.ShowHints,
                     chart.ShowPoints, chart.ShowInfo, chart.Zoom, chart.CursorGamma);
         chart.ShowImpedance = o.ZGrid; chart.ShowAdmittance = o.YGrid; chart.ShowLabels = o.Labels;
         chart.ShowTraces = o.Traces; chart.ShowHints = o.Arrows; chart.ShowPoints = o.Points; chart.ShowInfo = o.InfoBox;
         chart.Zoom = 1; chart.CursorGamma = null;
+        // the 1600 px bitmap is shrunk to 'printedSize' (1/100 inch): enlarge text and lines so they print
+        // at about 80 % of their screen size (96 dpi), which fits the printed chart without overlapping
+        chart.S = 1600f / (printedSize * 0.96f) * 0.8f;
         try { return RenderControl(chart, 1600, 1600); }
         finally
         {
             (chart.ShowImpedance, chart.ShowAdmittance, chart.ShowLabels, chart.ShowTraces, chart.ShowHints,
              chart.ShowPoints, chart.ShowInfo, chart.Zoom, chart.CursorGamma) = keep;
+            chart.S = 1;
         }
     }
 

@@ -15,6 +15,7 @@ public class SmithChartControl : Control
     public bool ShowPoints = true;     // datapoints
     public bool ShowInfo = true;       // name / VSWR box
     public float Zoom = 1f;
+    public float S = 1f;          // size factor for text, lines and markers (larger when rendering for print)
 
     public List<DataPoint> Points = new();
     public List<List<Complex>> Traces = new();   // one polyline per element
@@ -88,10 +89,10 @@ public class SmithChartControl : Control
         var state = g.Save();
         g.SetClip(clip);
 
-        using var redMinor = new Pen(Color.FromArgb(255, 232, 232), 1);
-        using var red = new Pen(Color.FromArgb(245, 170, 170), 1);
-        using var blueMinor = new Pen(Color.FromArgb(232, 240, 255), 1);
-        using var blue = new Pen(Color.FromArgb(165, 200, 245), 1);
+        using var redMinor = new Pen(Color.FromArgb(255, 232, 232), 1 * S);
+        using var red = new Pen(Color.FromArgb(245, 170, 170), 1 * S);
+        using var blueMinor = new Pen(Color.FromArgb(232, 240, 255), 1 * S);
+        using var blue = new Pen(Color.FromArgb(165, 200, 245), 1 * S);
 
         if (ShowAdmittance)
         {
@@ -110,12 +111,12 @@ public class SmithChartControl : Control
         }
         g.Restore(state);
 
-        using var outer = new Pen(Color.Black, 2);
+        using var outer = new Pen(Color.Black, 2 * S);
         g.DrawEllipse(outer, unit);
 
         if (Locus is var (lc, lr))
         {
-            using var lp = new Pen(Color.FromArgb(0, 160, 0), 2.5f) { DashStyle = DashStyle.Dash };
+            using var lp = new Pen(Color.FromArgb(0, 160, 0), 2.5f * S) { DashStyle = DashStyle.Dash };
             var st = g.Save();
             g.SetClip(clip);
             if (lr <= 0) g.DrawLine(lp, ToScreen(-1), ToScreen(1));
@@ -130,17 +131,17 @@ public class SmithChartControl : Control
 
         if (ShowInfo && InfoText.Length > 0)
         {
-            using var f = new Font("Segoe UI", 13f, FontStyle.Bold);
+            using var f = new Font("Segoe UI", 13f * S, FontStyle.Bold);
             var size = g.MeasureString(InfoText, f);
             using var bg = new SolidBrush(Color.FromArgb(220, 255, 255, 255));
-            g.FillRectangle(bg, 8, 8, size.Width + 8, size.Height + 4);
-            g.DrawRectangle(Pens.LightGray, 8, 8, size.Width + 8, size.Height + 4);
-            g.DrawString(InfoText, f, Brushes.Black, 12, 10);
+            g.FillRectangle(bg, 8 * S, 8 * S, size.Width + 8 * S, size.Height + 4 * S);
+            g.DrawRectangle(Pens.LightGray, 8 * S, 8 * S, size.Width + 8 * S, size.Height + 4 * S);
+            g.DrawString(InfoText, f, Brushes.Black, 12 * S, 10 * S);
         }
 
         if (CursorGamma is Complex c)
         {
-            using var cp = new Pen(Color.Gray, 1) { DashStyle = DashStyle.Dot };
+            using var cp = new Pen(Color.Gray, 1 * S) { DashStyle = DashStyle.Dot };
             double m = c.Magnitude;
             g.DrawEllipse(cp, CircleRect(0, 0, m)); // constant VSWR circle
         }
@@ -164,7 +165,7 @@ public class SmithChartControl : Control
 
     void DrawLabels(Graphics g)
     {
-        using var f = new Font("Segoe UI", 8f);
+        using var f = new Font("Segoe UI", 8f * S);
         using var redB = new SolidBrush(Color.FromArgb(220, 20, 60));
         using var blueB = new SolidBrush(Color.FromArgb(30, 120, 230));
         var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
@@ -174,7 +175,7 @@ public class SmithChartControl : Control
             foreach (var r in RValues)
             {
                 var p = ToScreen(Rf.Gamma(r, 1));
-                g.DrawString(Eng.Format(r * Z0), f, redB, p.X + 2, p.Y - 14);
+                g.DrawString(Eng.Format(r * Z0), f, redB, p.X + 2 * S, p.Y - 14 * S);
             }
             foreach (var x in XValues)
             {
@@ -192,7 +193,7 @@ public class SmithChartControl : Control
             foreach (var r in RValues)
             {
                 var p = ToScreen(-Rf.Gamma(r, 1));
-                g.DrawString(Eng.Format(r * y0), f, blueB, p.X + 2, p.Y + 2);
+                g.DrawString(Eng.Format(r * y0), f, blueB, p.X + 2 * S, p.Y + 2 * S);
             }
             foreach (var x in XValues)
             {
@@ -212,15 +213,15 @@ public class SmithChartControl : Control
         {
             var pts = Traces[i].Select(z => ToScreen(Rf.Gamma(z, Z0))).ToArray();
             if (pts.Length < 2) continue;
-            using var p = new Pen(TraceColors[i % TraceColors.Length], 2.5f);
+            using var p = new Pen(TraceColors[i % TraceColors.Length], 2.5f * S);
             g.DrawLines(p, pts);
         }
-        using var tf = new Font("Segoe UI", 8f, FontStyle.Bold);
+        using var tf = new Font("Segoe UI", 8f * S, FontStyle.Bold);
         for (int i = 0; i < ChainPoints.Count; i++)
         {
             var p = ToScreen(Rf.Gamma(ChainPoints[i], Z0));
-            g.FillEllipse(Brushes.Black, p.X - 3, p.Y - 3, 6, 6);
-            g.DrawString("TP" + (i + 1), tf, Brushes.Black, p.X + 5, p.Y - 14);
+            g.FillEllipse(Brushes.Black, p.X - 3 * S, p.Y - 3 * S, 6 * S, 6 * S);
+            g.DrawString("TP" + (i + 1), tf, Brushes.Black, p.X + 5 * S, p.Y - 14 * S);
         }
     }
 
@@ -249,33 +250,33 @@ public class SmithChartControl : Control
 
         void DrawHints(Graphics g)
     {
-        using var f = new Font("Segoe UI", 8f, FontStyle.Bold);
+        using var f = new Font("Segoe UI", 8f * S, FontStyle.Bold);
         for (int i = 0; i < Hints.Count; i++)
         {
             var (path, label) = Hints[i];
-            var pts = TrimToLength(path.Select(z => ToScreen(Rf.Gamma(z, Z0))).ToList(), HintLength);
+            var pts = TrimToLength(path.Select(z => ToScreen(Rf.Gamma(z, Z0))).ToList(), HintLength * S);
             if (pts.Length < 2) continue;
             var a = pts[^2];
             var b = pts[^1];
             if (Math.Abs(b.X - pts[0].X) + Math.Abs(b.Y - pts[0].Y) < 4) continue;   // value has no visible effect
             bool up = label.EndsWith("+");
             var color = up ? Color.FromArgb(0, 150, 0) : Color.FromArgb(200, 0, 0);
-            using var pen = new Pen(color, 2f) { CustomEndCap = new AdjustableArrowCap(4, 5) };
+            using var pen = new Pen(color, 2f * S) { CustomEndCap = new AdjustableArrowCap(4, 5) };
             g.DrawLines(pen, pts);
             using var br = new SolidBrush(color);
-            g.DrawString(label, f, br, b.X + 4, b.Y - 6);
+            g.DrawString(label, f, br, b.X + 4 * S, b.Y - 6 * S);
         }
     }
 
         void DrawPoints(Graphics g)
     {
-        using var f = new Font("Segoe UI", 9f);
+        using var f = new Font("Segoe UI", 9f * S);
         using var green = new SolidBrush(Color.Green);
         for (int i = 0; i < Points.Count; i++)
         {
             var p = ToScreen(Rf.Gamma(Points[i].Z, Z0));
-            g.DrawRectangle(Pens.Black, p.X - 4, p.Y - 4, 8, 8);
-            g.DrawString("DP " + (i + 1), f, green, p.X + 4, p.Y + 2);
+            using (var dp = new Pen(Color.Black, S)) g.DrawRectangle(dp, p.X - 4 * S, p.Y - 4 * S, 8 * S, 8 * S);
+            g.DrawString("DP " + (i + 1), f, green, p.X + 4 * S, p.Y + 2 * S);
         }
     }
 }
