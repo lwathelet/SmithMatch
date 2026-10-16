@@ -19,7 +19,7 @@ public class SchematicControl : Control
 
     readonly List<(RectangleF rect, int slot)> hits = new();
 
-    const float RailY = 40, GndY = 130, Pitch = 72;
+    const float RailY = 55, GndY = 145, Pitch = 72;
 
     public SchematicControl()
     {
@@ -132,6 +132,9 @@ public class SchematicControl : Control
         g.DrawString(Eng.Format(el.Value) + el.Unit, font, Brushes.Black, label);
         if (Kits.PartNumber(el.Type, el.Value) is string pn)
             g.DrawString(pn, font, Brushes.Gray, label.X, label.Y + font.Height);
+        if (el.HasParasitics)   // parasitics estimated from measurements
+            g.DrawString($"par {Eng.Format(el.ParC)}F {Eng.Format(el.ParL)}H", font, Brushes.DarkOrange,
+                         label.X, slot / 3 == 1 ? label.Y - font.Height : label.Y + 2 * font.Height);   // series: above the value
     }
 
     static void DrawSymbol(Graphics g, Pen pen, int kind, PointF a, PointF b, bool vertical)

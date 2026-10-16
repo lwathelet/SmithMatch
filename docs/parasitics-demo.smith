@@ -1,0 +1,21 @@
+{
+  "Z0": 50,
+  "Frequency": "2.45G",
+  "KitValuesOnly": false,
+  "StartPoint": 0,
+  "Points": [ { "R": 29, "X": 132, "Freq": 2450000000 } ],
+  "Components": [
+    { "Slot": 5, "Type": "SeriesC", "Value": 6E-13 },
+    { "Slot": 8, "Type": "ShuntC", "Value": 1.33E-12 }
+  ],
+  "Parasitics": [
+    { "Slot": 5, "C": 1.697E-12, "L": 8.622E-09,
+      "Measurements": [
+        { "Value": 6E-13, "R": 0.5, "X": -30 },
+        { "Value": 7E-13, "R": 3.35, "X": -10 },
+        { "Value": 8E-13, "R": 4.78, "X": -3.32 },
+        { "Value": 9E-13, "R": 6.38, "X": 9.23 },
+        { "Value": 1E-12, "R": 7.06, "X": 15.6 }
+      ] }
+  ]
+}

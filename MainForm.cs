@@ -16,6 +16,8 @@ public class MainForm : Form
     readonly Label lblResult = new() { Dock = DockStyle.Bottom, Height = 40, Font = new Font("Segoe UI", 9f, FontStyle.Bold) };
 
     Element[] slots = new Element[9];   // see SchematicControl: position * 3 + kind (R, L, C)
+    (double C, double L)[] slotPar = new (double, double)[9];   // parasitics of each position (from a measurement fit)
+    List<(double value, Complex z)>[] slotMeas = new List<(double, Complex)>[9];   // measurements used for the fit
     IEnumerable<Element> Elements => slots.Where(e => e != null);
     int selectedSlot = -1;
     string designPath;           // file of the current design (null = not saved yet)
@@ -121,6 +123,7 @@ public class MainForm : Form
         }
         ts.Items.Add(new ToolStripButton("Auto-match", null, (_, _) => AutoMatch()) { ToolTipText = "List the L-network solutions that match the start DP to Z0" });
         ts.Items.Add(new ToolStripButton("VSWR sweep...", null, (_, _) => ShowSweep()) { ToolTipText = "VSWR versus frequency over a chosen range" });
+        ts.Items.Add(new ToolStripButton("Parasitics...", null, (_, _) => ShowParasitics()) { ToolTipText = "Estimate the parasitic L and C from measurements" });
         return ts;
     }
 
@@ -257,12 +260,14 @@ public class MainForm : Form
         var zb = ZBefore(slot);
         if (zb == null) { MessageBox.Show(this, "Add a datapoint first."); return; }
         placingSlot = slot;
-        placingBackup = slots[slot] == null ? null : new Element { Type = slots[slot].Type, Value = slots[slot].Value };
+        placingBackup = slots[slot]?.With(slots[slot].Value);
         slots[slot] ??= new Element { Type = SlotType(slot), Value = (slot % 3) switch { 0 => slot / 3 == 1 ? 1e-3 : 1e9, 1 => slot / 3 == 1 ? 1e-15 : 1e3, _ => slot / 3 == 1 ? 1e3 : 1e-18 } };
+        SyncParasitics();
         selectedSlot = slot;
 
         // locus: series R → constant x, series L/C → constant r, shunt R → constant b, shunt L/C → constant g
-        Complex z = zb.Value / Z0, y = 1 / z;
+        // (computed after the parasitics of this position: pad capacitance and series inductance)
+        Complex z = slots[slot].ApplyParasitic(zb.Value, Freq, 1) / Z0, y = 1 / z;
         bool series = slot / 3 == 1, isR = slot % 3 == 0;
         double v = series ? (isR ? z.Imaginary : z.Real) : (isR ? y.Imaginary : y.Real);
         double sign = series ? 1 : -1;  // admittance circles are the impedance ones mirrored through the centre
@@ -281,7 +286,10 @@ public class MainForm : Form
         Complex zm = Rf.ZFromGamma(gamma, Z0), zbv = zb.Value;
         double w = 2 * Math.PI * Freq;
         bool series = placingSlot / 3 == 1;
-        Complex d = series ? zm - zbv : 1 / zm - 1 / zbv;   // added impedance or admittance
+        var el = slots[placingSlot];
+        Complex zpre = el.ApplyParasitic(zbv, Freq, 1);       // after pad capacitance (and series inductance)
+        Complex d = series ? zm - zpre : 1 / zm - 1 / zpre;   // added impedance or admittance
+        if (!series && el.ParL != 0) d = 1 / (1 / d - new Complex(0, w * el.ParL));   // remove the branch inductance
         double val = (placingSlot % 3) switch
         {
             0 => series ? d.Real : (d.Real > 0 ? 1 / d.Real : -1),                 // R
@@ -330,7 +338,16 @@ public class MainForm : Form
         public int StartPoint { get; set; }
         public List<PointDto> Points { get; set; } = new();
         public List<SlotDto> Components { get; set; } = new();
+        public List<ParasiticDto> Parasitics { get; set; } = new();
     }
+    class ParasiticDto
+    {
+        public int Slot { get; set; }
+        public double C { get; set; }
+        public double L { get; set; }
+        public List<MeasDto> Measurements { get; set; } = new();
+    }
+    class MeasDto { public double Value { get; set; } public double R { get; set; } public double X { get; set; } }
     class PointDto { public double R { get; set; } public double X { get; set; } public double Freq { get; set; } }
     class SlotDto { public int Slot { get; set; } public string Type { get; set; } public double Value { get; set; } }
 
@@ -351,6 +368,8 @@ public class MainForm : Form
         loading = true;
         chart.Points.Clear();
         slots = new Element[9];
+        slotPar = new (double, double)[9];
+        slotMeas = new List<(double, Complex)>[9];
         selectedSlot = -1;
         designPath = null;
         Recalc();
@@ -376,6 +395,12 @@ public class MainForm : Form
             Points = chart.Points.Select(p => new PointDto { R = p.Z.Real, X = p.Z.Imaginary, Freq = p.Freq }).ToList(),
             Components = Enumerable.Range(0, 9).Where(k => slots[k] != null)
                 .Select(k => new SlotDto { Slot = k, Type = slots[k].Type.ToString(), Value = slots[k].Value }).ToList(),
+            Parasitics = Enumerable.Range(0, 9).Where(k => slotPar[k] != default || slotMeas[k] is { Count: > 0 })
+                .Select(k => new ParasiticDto
+                {
+                    Slot = k, C = slotPar[k].C, L = slotPar[k].L,
+                    Measurements = (slotMeas[k] ?? new()).Select(m => new MeasDto { Value = m.value, R = m.z.Real, X = m.z.Imaginary }).ToList(),
+                }).ToList(),
         };
         try
         {
@@ -417,6 +442,14 @@ public class MainForm : Form
         foreach (var c in d.Components)
             if (c.Slot is >= 0 and < 9 && Enum.TryParse<ElementType>(c.Type, out var t))
                 slots[c.Slot] = new Element { Type = t, Value = c.Value };
+        slotPar = new (double, double)[9];
+        slotMeas = new List<(double, Complex)>[9];
+        foreach (var pd in d.Parasitics ?? new())
+            if (pd.Slot is >= 0 and < 9)
+            {
+                slotPar[pd.Slot] = (pd.C, pd.L);
+                slotMeas[pd.Slot] = pd.Measurements.Select(m => (m.Value, new Complex(m.R, m.X))).ToList();
+            }
         selectedSlot = -1;
         forcedStart = d.StartPoint;
         Recalc();
@@ -484,10 +517,52 @@ public class MainForm : Form
             bmp.Save(Path.Combine(folder, "print.png"), System.Drawing.Imaging.ImageFormat.Png);
         }
         dlg.Close();
+
+        // parasitics dialog of the first position that has measurements
+        int ks = Enumerable.Range(0, 9).FirstOrDefault(k => slotMeas[k] is { Count: > 0 }, -1);
+        if (ks >= 0)
+        {
+            string[] groups = { "Load", "Serie", "Source" };
+            var names = Enumerable.Range(0, 9).Where(k => k % 3 != 0).Select(k => (k, $"{groups[k / 3]} {"RLC"[k % 3]}")).ToList();
+            using var pf = new ParasiticsForm(names, ks, Freq, Z0, k => ZBefore(k) ?? Complex.Zero,
+                k => slots[k]?.With(slots[k].Value) ?? new Element { Type = SlotType(k), Value = 1e-12 },
+                k => slotPar[k], k => slotMeas[k]) { StartPosition = FormStartPosition.Manual, Location = new Point(-3000, 0) };
+            pf.Show(this);
+            for (int k = 0; k < 20; k++) { Application.DoEvents(); Thread.Sleep(50); }
+            Save(pf, "parasitics.png");
+            pf.Close();
+        }
         dirty = false;   // nothing to save when closing
     }
 
-        void ShowSweep()
+        /// <summary>Copies the parasitics of each position into the component placed there.</summary>
+    void SyncParasitics()
+    {
+        for (int k = 0; k < 9; k++)
+            if (slots[k] != null) (slots[k].ParC, slots[k].ParL) = slotPar[k];
+    }
+
+    void ShowParasitics()
+    {
+        if (placingSlot >= 0) FinishPlacing();
+        if (StartPoint() == null) { MessageBox.Show(this, "Add the load datapoint first."); return; }
+        string[] groups = { "Load", "Serie", "Source" };
+        var names = Enumerable.Range(0, 9).Where(k => k % 3 != 0)
+            .Select(k => (k, $"{groups[k / 3]} {"RLC"[k % 3]}")).ToList();
+        using var dlg = new ParasiticsForm(names, selectedSlot >= 0 && selectedSlot % 3 != 0 ? selectedSlot : 5, Freq, Z0,
+            k => ZBefore(k) ?? Complex.Zero,
+            k => slots[k]?.With(slots[k].Value) ?? new Element { Type = SlotType(k), Value = 1e-12 },
+            k => slotPar[k], k => slotMeas[k]);
+        if (dlg.ShowDialog(this) != DialogResult.OK) return;
+        foreach (var (k, par, meas) in dlg.Results)
+        {
+            slotPar[k] = par;
+            slotMeas[k] = meas;
+        }
+        Recalc();
+    }
+
+    void ShowSweep()
     {
         if (sweep == null || sweep.IsDisposed)
         {
@@ -560,9 +635,13 @@ public class MainForm : Form
             var sol = new Element[9];
             foreach (var e in els.Where(e => e != null))
             {
-                e.Value = Fix(e.Type, e.Value);
-                sol[SlotOf(e.Type, shuntAtSource)] = e;
+                int k = SlotOf(e.Type, shuntAtSource);
+                (e.ParC, e.ParL) = slotPar[k];
+                sol[k] = e;
             }
+            // with parasitics the ideal values no longer match: refine them numerically on the real network
+            if (sol.Any(e => e != null && e.HasParasitics)) RefineMatch(sol, start.Z);
+            foreach (var e in sol.Where(e => e != null)) e.Value = Fix(e.Type, e.Value);
             if (sol.Any(e => e != null) && !solutions.Any(x => Key(x) == Key(sol)))
                 solutions.Add(sol);
         }
@@ -606,11 +685,12 @@ public class MainForm : Form
                                     .Where(t => t != null);
             Complex zin = start.Z;
             foreach (var e in solutions[i].Where(e => e != null)) zin = e.Apply(zin, Freq, 1);
-            lb.Items.Add($"{i + 1}. {string.Join("   ", parts)}   ({kind})   VSWR {Rf.Vswr(Rf.Gamma(zin, z0)):0.00}");
+            string par = solutions[i].Any(e => e != null && e.HasParasitics) ? "   incl. parasitics" : "";
+            lb.Items.Add($"{i + 1}. {string.Join("   ", parts)}   ({kind})   VSWR {Rf.Vswr(Rf.Gamma(zin, z0)):0.00}{par}");
         }
         lb.SelectedIndexChanged += (_, _) =>
         {
-            slots = solutions[lb.SelectedIndex].Select(e => e == null ? null : new Element { Type = e.Type, Value = e.Value }).ToArray();
+            slots = solutions[lb.SelectedIndex].Select(e => e?.With(e.Value)).ToArray();
             selectedSlot = -1;
             Recalc();
         };
@@ -628,6 +708,28 @@ public class MainForm : Form
             slots = backup;
             Recalc();
         }
+    }
+
+    /// <summary>Adjusts the values of a solution (log scale, Nelder–Mead) to minimise |Γ| with the parasitics included.</summary>
+    void RefineMatch(Element[] sol, Complex zLoad)
+    {
+        var els = sol.Where(e => e != null).ToList();
+        var x0 = els.Select(e => Math.Log(e.Value)).ToArray();
+        double Cost(double[] x)
+        {
+            Complex z = zLoad;
+            for (int i = 0; i < els.Count; i++) z = els[i].With(Math.Exp(x[i])).Apply(z, Freq, 1);
+            return Rf.Gamma(z, Z0).Magnitude;
+        }
+        var best = (x: x0, f: Cost(x0));
+        foreach (double a in new[] { 0.0, -0.7, 0.7 })
+            foreach (double b in new[] { 0.0, -0.7, 0.7 })
+            {
+                var start = x0.Select((v, i) => v + (i == 0 ? a : b)).ToArray();
+                var r = Minimizer.Minimize(Cost, start, 0.4, 400);
+                if (r.f < best.f) best = r;
+            }
+        for (int i = 0; i < els.Count; i++) els[i].Value = Math.Exp(best.x[i]);
     }
 
     static Element Reactance(double x, double w) =>
@@ -656,6 +758,7 @@ public class MainForm : Form
 
         // datapoint list (keep start selection)
         if (!loading) dirty = true;
+        SyncParasitics();
         UpdateTitle();
         int checkedIdx = forcedStart;
         forcedStart = -1;
@@ -690,6 +793,9 @@ public class MainForm : Form
         chart.Traces.Clear();
         chart.ChainPoints.Clear();
         chart.Hints.Clear();
+        chart.ParasiticTraces.Clear();
+        chart.Measured.Clear();
+        chart.ModelPaths.Clear();
         var start = StartPoint();
         if (start != null)
         {
@@ -699,6 +805,16 @@ public class MainForm : Form
             {
                 var e = slots[k];
                 if (e == null) continue;
+                if (e.HasParasitics)
+                    chart.ParasiticTraces.Add(Enumerable.Range(0, 51).Select(i => e.ApplyParasitic(z, f, i / 50.0)).ToList());
+                if (slotMeas[k] is { Count: > 0 } meas)
+                {
+                    // measured points and the model over the measured range
+                    foreach (var (v, zm) in meas) chart.Measured.Add((zm, Eng.Format(v) + e.Unit));
+                    double v1 = meas.Min(m => m.value), v2 = meas.Max(m => m.value);
+                    var zFrom = z;
+                    chart.ModelPaths.Add(Enumerable.Range(0, 61).Select(i => e.With(v1 * Math.Pow(v2 / v1, i / 60.0)).Apply(zFrom, f, 1)).ToList());
+                }
                 var trace = new List<Complex>();
                 for (int i = 0; i <= 100; i++) trace.Add(e.Apply(z, f, i / 100.0));
                 chart.Traces.Add(trace);
@@ -709,8 +825,8 @@ public class MainForm : Form
                 for (int i = 0; i <= 200; i++)
                 {
                     double factor = Math.Pow(10, i / 200.0);
-                    up.Add(new Element { Type = e.Type, Value = e.Value * factor }.Apply(z, f, 1));
-                    down.Add(new Element { Type = e.Type, Value = e.Value / factor }.Apply(z, f, 1));
+                    up.Add(e.With(e.Value * factor).Apply(z, f, 1));
+                    down.Add(e.With(e.Value / factor).Apply(z, f, 1));
                 }
                 string name = $"{groups[k / 3]} {"RLC"[k % 3]}";
                 chart.Hints.Add((up, name + " +"));
@@ -791,7 +907,8 @@ public class MainForm : Form
         string[] groups = { "Load", "Serie", "Source" };
         for (int k = 0; k < 9; k++)
             if (slots[k] != null) compLines.Add($"{groups[k / 3]} {"RLC"[k % 3]} = {Eng.Format(slots[k].Value)}{slots[k].Unit}"
-                + (Kits.PartNumber(slots[k].Type, slots[k].Value) is string pn ? $"   Würth {pn}" : ""));
+                + (Kits.PartNumber(slots[k].Type, slots[k].Value) is string pn ? $"   Würth {pn}" : "")
+                + (slots[k].HasParasitics ? $"   parasitics: {Eng.Format(slots[k].ParC)}F to ground, {Eng.Format(slots[k].ParL)}H in series" : ""));
         var resLines = hasStart ? new List<string> { lblResult.Text } : new List<string>();
 
         float schH = 110, sweepH = Math.Max(130, m.Height * 0.15f);

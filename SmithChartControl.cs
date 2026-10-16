@@ -21,7 +21,10 @@ public class SmithChartControl : Control
     public List<List<Complex>> Traces = new();   // one polyline per element
     public List<Complex> ChainPoints = new();
     public string InfoText = "";   // shown in the top-left corner (VSWR of the network)
-    public List<(List<Complex> path, string label)> Hints = new();  // arrows: effect of increasing (+) / decreasing (−) a value    // impedance after each element
+    public List<(List<Complex> path, string label)> Hints = new();  // arrows: effect of increasing (+) / decreasing (−) a value
+    public List<List<Complex>> ParasiticTraces = new();             // effect of the parasitics of a position (grey)
+    public List<(Complex z, string label)> Measured = new();        // measured impedances (×)
+    public List<List<Complex>> ModelPaths = new();                  // model over the measured value range (dotted)
     public Complex? CursorGamma;                      // reflection coefficient under the mouse
     public (Complex center, double radius)? Locus;   // circle (in Γ plane) followed by the component being placed; radius 0 = real axis
 
@@ -125,9 +128,11 @@ public class SmithChartControl : Control
         }
 
         if (ShowLabels) DrawLabels(g);
+        if (ShowTraces) DrawParasitics(g);
         if (ShowTraces) DrawTraces(g);
         if (ShowHints) DrawHints(g);
         if (ShowPoints) DrawPoints(g);
+        if (ShowPoints) DrawMeasured(g);
 
         if (ShowInfo && InfoText.Length > 0)
         {
@@ -268,7 +273,37 @@ public class SmithChartControl : Control
         }
     }
 
-        void DrawPoints(Graphics g)
+        void DrawParasitics(Graphics g)
+    {
+        using var pen = new Pen(Color.Gray, 2f * S) { DashStyle = DashStyle.Dash };
+        foreach (var path in ParasiticTraces)
+        {
+            var pts = path.Select(z => ToScreen(Rf.Gamma(z, Z0))).ToArray();
+            if (pts.Length > 1) g.DrawLines(pen, pts);
+        }
+    }
+
+    void DrawMeasured(Graphics g)
+    {
+        using var pen = new Pen(Color.FromArgb(90, 90, 90), 1.2f * S) { DashStyle = DashStyle.Dot };
+        foreach (var path in ModelPaths)
+        {
+            var pts = path.Select(z => ToScreen(Rf.Gamma(z, Z0))).ToArray();
+            if (pts.Length > 1) g.DrawLines(pen, pts);
+        }
+        using var xp = new Pen(Color.Black, 1.8f * S);
+        using var f = new Font("Segoe UI", 7.5f * S);
+        foreach (var (z, label) in Measured)
+        {
+            var p = ToScreen(Rf.Gamma(z, Z0));
+            float r = 4 * S;
+            g.DrawLine(xp, p.X - r, p.Y - r, p.X + r, p.Y + r);
+            g.DrawLine(xp, p.X - r, p.Y + r, p.X + r, p.Y - r);
+            g.DrawString(label, f, Brushes.DimGray, p.X + r + 1, p.Y - r - 2 * S);
+        }
+    }
+
+    void DrawPoints(Graphics g)
     {
         using var f = new Font("Segoe UI", 9f * S);
         using var green = new SolidBrush(Color.Green);
