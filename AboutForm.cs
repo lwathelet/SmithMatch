@@ -3,7 +3,7 @@ using System.Reflection;
 
 namespace SmithMatch;
 
-/// <summary>Icon and logo embedded in the program (SmartVVB / Wattlet AS).</summary>
+/// <summary>Icon and logo embedded in the program (Wattlet AS).</summary>
 public static class Branding
 {
     static Icon icon;
@@ -48,7 +48,7 @@ public class AboutForm : Form
         ShowInTaskbar = false;
         BackColor = Color.White;
         Font = new Font("Segoe UI", 9.5f);
-        ClientSize = new Size(560, 520);
+        ClientSize = new Size(560, 570);
 
         var flow = new FlowLayoutPanel
         {
@@ -60,7 +60,7 @@ public class AboutForm : Form
         if (Branding.Logo is Image logo)
             flow.Controls.Add(new PictureBox
             {
-                Image = logo, SizeMode = PictureBoxSizeMode.Zoom, Size = new Size(320, 51), Margin = new Padding(0, 0, 0, 14),
+                Image = logo, SizeMode = PictureBoxSizeMode.Zoom, Size = new Size(380, 73), Margin = new Padding(0, 0, 0, 14),
             });
 
         Label Text_(string text, float size = 9.5f, FontStyle style = FontStyle.Regular, Color? color = null, int bottom = 8) => new()
